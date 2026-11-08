@@ -51,3 +51,4 @@ CLIENT_POLL_INTERVAL_MS = 3000
 # When enabled, intercepts OS probe URLs (/generate_204, /hotspot-detect.html, etc.)
 # and redirects them to http://192.168.4.1/ for instant dashboard launch.
 ENABLE_CAPTIVE_PORTAL = True
+

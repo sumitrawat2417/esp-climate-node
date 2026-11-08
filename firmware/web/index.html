@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP-ClimateNode | Environmental Monitor</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(22, 30, 49, 0.75);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-temp: #f97316;
+      --accent-hum: #06b6d4;
+      --accent-heat: #eab308;
+      --accent-dew: #8b5cf6;
+      --status-ok: #10b981;
+      --status-err: #ef4444;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 15% 15%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 85% 85%, rgba(249, 115, 22, 0.08) 0%, transparent 40%);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.5rem 1rem;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 840px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.75rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .brand h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand h1 span.badge-node {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 0.2rem 0.5rem;
+      border-radius: 9999px;
+      background: rgba(6, 182, 212, 0.15);
+      color: #38bdf8;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    .brand p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--status-ok);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .status-badge.connecting {
+      background: rgba(234, 179, 8, 0.12);
+      color: #facc15;
+      border-color: rgba(234, 179, 8, 0.25);
+    }
+
+    .status-badge.error {
+      background: rgba(239, 68, 68, 0.12);
+      color: var(--status-err);
+      border-color: rgba(239, 68, 68, 0.25);
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 0 8px currentColor;
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    /* Grid Layout */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.75rem;
+    }
+
+    /* Card Component */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.16);
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .card.temp::before { background: linear-gradient(90deg, #f97316, #fb923c); }
+    .card.hum::before  { background: linear-gradient(90deg, #06b6d4, #38bdf8); }
+    .card.heat::before { background: linear-gradient(90deg, #eab308, #fde047); }
+    .card.dew::before  { background: linear-gradient(90deg, #8b5cf6, #a78bfa); }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .unit-toggle {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .unit-toggle:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .card-value {
+      font-size: 3rem;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: baseline;
+      gap: 0.2rem;
+    }
+
+    .card-value small {
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .card-meta {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 9999px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .card.temp .progress-bar-fill { background: var(--accent-temp); }
+    .card.hum  .progress-bar-fill { background: var(--accent-hum); }
+
+    /* System Stats Footer */
+    footer {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .footer-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+
+    .footer-item strong {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="brand">
+        <h1>ESP-ClimateNode <span class="badge-node">SoftAP</span></h1>
+        <p>Standalone Offline IoT Environmental Telemetry</p>
+      </div>
+      <div id="statusBadge" class="status-badge">
+        <span class="dot"></span>
+        <span id="statusText">ONLINE</span>
+      </div>
+    </header>
+
+    <!-- Telemetry Cards Grid -->
+    <main class="grid">
+      
+      <!-- Temperature -->
+      <div class="card temp">
+        <div class="card-header">
+          <span class="card-title">🌡️ Temperature</span>
+          <button id="unitBtn" class="unit-toggle" title="Toggle °C / °F">°C</button>
+        </div>
+        <div class="card-value">
+          <span id="tempVal">--.-</span><small id="tempUnit">°C</small>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="tempBar" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+        <div class="card-meta">
+          <span>Range: -40°C to 80°C</span>
+          <span id="tempStatus">Normal</span>
+        </div>
+      </div>
+
+      <!-- Relative Humidity -->
+      <div class="card hum">
+        <div class="card-header">
+          <span class="card-title">💧 Relative Humidity</span>
+        </div>
+        <div class="card-value">
+          <span id="humVal">--.-</span><small>%</small>
+        </div>
+        <div class="progress-bar-bg">
+          <div id="humBar" class="progress-bar-fill" style="width: 0%;"></div>
+        </div>
+        <div class="card-meta">
+          <span>Target: 40% - 60%</span>
+          <span id="humStatus">Optimal</span>
+        </div>
+      </div>
+
+      <!-- Heat Index ("Feels Like") -->
+      <div class="card heat">
+        <div class="card-header">
+          <span class="card-title">☀️ Heat Index (Feels Like)</span>
+        </div>
+        <div class="card-value">
+          <span id="heatVal">--.-</span><small id="heatUnit">°C</small>
+        </div>
+        <div class="card-meta">
+          <span>NOAA Regression Model</span>
+          <span id="heatStatus">Comfortable</span>
+        </div>
+      </div>
+
+      <!-- Dew Point -->
+      <div class="card dew">
+        <div class="card-header">
+          <span class="card-title">🌫️ Dew Point</span>
+        </div>
+        <div class="card-value">
+          <span id="dewVal">--.-</span><small id="dewUnit">°C</small>
+        </div>
+        <div class="card-meta">
+          <span>Magnus-Tetens Formula</span>
+          <span id="dewStatus">Condensation Free</span>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Diagnostics Footer -->
+    <footer>
+      <div class="footer-items">
+        <div class="footer-item">Uptime: <strong id="uptimeText">0s</strong></div>
+        <div class="footer-item">Heap: <strong id="heapText">-- KB</strong></div>
+        <div class="footer-item">Reads: <strong id="readsText">0</strong></div>
+        <div class="footer-item">Errors: <strong id="errorsText">0</strong></div>
+      </div>
+      <div class="footer-refresh">
+        Auto-refresh: <strong>3s</strong>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    let useFahrenheit = false;
+    let latestData = null;
+
+    const unitBtn = document.getElementById("unitBtn");
+    const statusBadge = document.getElementById("statusBadge");
+    const statusText = document.getElementById("statusText");
+
+    const tempVal = document.getElementById("tempVal");
+    const tempUnit = document.getElementById("tempUnit");
+    const tempBar = document.getElementById("tempBar");
+    const tempStatus = document.getElementById("tempStatus");
+
+    const humVal = document.getElementById("humVal");
+    const humBar = document.getElementById("humBar");
+    const humStatus = document.getElementById("humStatus");
+
+    const heatVal = document.getElementById("heatVal");
+    const heatUnit = document.getElementById("heatUnit");
+    const heatStatus = document.getElementById("heatStatus");
+
+    const dewVal = document.getElementById("dewVal");
+    const dewUnit = document.getElementById("dewUnit");
+
+    const uptimeText = document.getElementById("uptimeText");
+    const heapText = document.getElementById("heapText");
+    const readsText = document.getElementById("readsText");
+    const errorsText = document.getElementById("errorsText");
+
+    // Temperature unit toggle
+    unitBtn.addEventListener("click", () => {
+      useFahrenheit = !useFahrenheit;
+      unitBtn.textContent = useFahrenheit ? "°F" : "°C";
+      tempUnit.textContent = useFahrenheit ? "°F" : "°C";
+      heatUnit.textContent = useFahrenheit ? "°F" : "°C";
+      dewUnit.textContent = useFahrenheit ? "°F" : "°C";
+      if (latestData) renderUI(latestData);
+    });
+
+    function formatUptime(seconds) {
+      if (seconds < 60) return seconds + "s";
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      if (m < 60) return `${m}m ${s}s`;
+      const h = Math.floor(m / 60);
+      const rm = m % 60;
+      return `${h}h ${rm}m`;
+    }
+
+    function toF(celsius) {
+      return (celsius * 1.8) + 32;
+    }
+
+    function renderUI(data) {
+      latestData = data;
+
+      // 1. Temperature
+      const displayTemp = useFahrenheit ? toF(data.temperature) : data.temperature;
+      tempVal.textContent = displayTemp.toFixed(1);
+      
+      // Bar width (normalized 0°C to 50°C)
+      const clampedTemp = Math.max(0, Math.min(50, data.temperature));
+      tempBar.style.width = (clampedTemp / 50 * 100) + "%";
+
+      if (data.temperature < 18) {
+        tempStatus.textContent = "Cool";
+      } else if (data.temperature <= 26) {
+        tempStatus.textContent = "Comfortable";
+      } else if (data.temperature <= 32) {
+        tempStatus.textContent = "Warm";
+      } else {
+        tempStatus.textContent = "Hot";
+      }
+
+      // 2. Humidity
+      humVal.textContent = data.humidity.toFixed(1);
+      humBar.style.width = Math.min(100, Math.max(0, data.humidity)) + "%";
+
+      if (data.humidity < 30) {
+        humStatus.textContent = "Dry";
+      } else if (data.humidity <= 60) {
+        humStatus.textContent = "Optimal";
+      } else {
+        humStatus.textContent = "High Humidity";
+      }
+
+      // 3. Heat Index
+      const displayHeat = useFahrenheit ? toF(data.heat_index) : data.heat_index;
+      heatVal.textContent = displayHeat.toFixed(1);
+
+      if (data.heat_index >= 38) {
+        heatStatus.textContent = "Danger (Heat Warning)";
+      } else if (data.heat_index >= 32) {
+        heatStatus.textContent = "Extreme Caution";
+      } else {
+        heatStatus.textContent = "Comfortable";
+      }
+
+      // 4. Dew Point
+      const displayDew = useFahrenheit ? toF(data.dew_point) : data.dew_point;
+      dewVal.textContent = displayDew.toFixed(1);
+
+      // 5. Diagnostics
+      uptimeText.textContent = formatUptime(data.uptime_seconds);
+      readsText.textContent = data.read_count;
+      errorsText.textContent = data.read_errors;
+
+      // Connection Status
+      statusBadge.className = "status-badge";
+      statusText.textContent = "ONLINE";
+    }
+
+    // Secondary diagnostics fetch
+    async function fetchStatus() {
+      try {
+        const res = await fetch("/api/status", { cache: "no-store" });
+        if (res.ok) {
+          const status = await res.json();
+          if (status.free_heap_bytes) {
+            heapText.textContent = (status.free_heap_bytes / 1024).toFixed(1) + " KB";
+          }
+        }
+      } catch (e) {
+        // Non-critical, ignore
+      }
+    }
+
+    // Telemetry polling loop
+    async function pollTelemetry() {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+      try {
+        const response = await fetch("/api/data", {
+          signal: controller.signal,
+          cache: "no-store"
+        });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error("HTTP " + response.status);
+
+        const data = await response.json();
+        renderUI(data);
+
+      } catch (err) {
+        statusBadge.className = "status-badge connecting";
+        statusText.textContent = "RECONNECTING";
+      }
+    }
+
+    // Initial trigger + recurring interval
+    pollTelemetry();
+    fetchStatus();
+    setInterval(pollTelemetry, 3000);
+    setInterval(fetchStatus, 15000);
+  </script>
+</body>
+</html>

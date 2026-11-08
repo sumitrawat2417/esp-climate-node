@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+# Guarantee execution from project root
+cd "$(dirname "$0")/.."
+
 echo "==================================================="
 echo "  ESP-ClimateNode: 1-Click Firmware Deployer"
 echo "==================================================="
@@ -11,7 +14,7 @@ echo ""
 # -------------------------------------------------------------
 if ! python3 -c "import mpremote" &>/dev/null; then
     echo "[*] 'mpremote' not found. Installing via pip..."
-    python3 -m pip install mpremote
+    python3 -m pip install mpremote pyserial
 fi
 
 if ! python3 -c "import esptool" &>/dev/null; then
@@ -22,57 +25,18 @@ fi
 # -------------------------------------------------------------
 # Automatic Serial Port Detection (Linux & macOS)
 # -------------------------------------------------------------
-detect_serial_ports() {
-    local detected=()
+echo "[*] Scanning for connected serial devices..."
+python3 -c "import serial.tools.list_ports; [print(f'     -> {p.device}: {p.description}') for p in serial.tools.list_ports.comports()]" 2>/dev/null || true
+echo ""
 
-    # 1. Try python's serial tools if available
-    if python3 -c "import serial.tools.list_ports" &>/dev/null; then
-        while IFS= read -r line; do
-            [ -n "$line" ] && detected+=("$line")
-        done < <(python3 -c "import serial.tools.list_ports; [print(p.device) for p in serial.tools.list_ports.comports()]")
-    fi
+AUTO_PORT=$(python3 -c "import serial.tools.list_ports; usb = [p.device for p in serial.tools.list_ports.comports() if any(k in (p.description + p.hwid).upper() for k in ['USB', 'CH340', 'CP210', 'FTDI', 'UART'])]; print(usb[0] if usb else '')" 2>/dev/null || true)
 
-    # 2. Fallback to /dev pattern matching if python list was empty
-    if [ ${#detected[@]} -eq 0 ]; then
-        # Linux standard USB-UART devices
-        for p in /dev/ttyUSB* /dev/ttyACM*; do
-            [ -e "$p" ] && detected+=("$p")
-        done
-        # macOS standard USB-UART devices
-        for p in /dev/cu.usbserial* /dev/cu.wchusbserial* /dev/cu.SLAB_USBtoUART* /dev/cu.usbmodem*; do
-            [ -e "$p" ] && detected+=("$p")
-        done
-    fi
-
-    echo "${detected[@]}"
-}
-
-echo "[*] Scanning for connected ESP8266 devices..."
-read -ra PORTS <<< "$(detect_serial_ports)"
-
-PORT=""
-
-if [ ${#PORTS[@]} -eq 1 ]; then
-    AUTO_PORT="${PORTS[0]}"
-    echo "[+] Found ESP8266 on: $AUTO_PORT"
+if [ -n "$AUTO_PORT" ]; then
+    echo "[+] Auto-detected ESP8266 on: $AUTO_PORT"
     read -rp "Press Enter to use [$AUTO_PORT], or enter custom port: " USER_INPUT
     PORT="${USER_INPUT:-$AUTO_PORT}"
-
-elif [ ${#PORTS[@]} -gt 1 ]; then
-    echo "[!] Multiple serial ports detected:"
-    for i in "${!PORTS[@]}"; do
-        echo "    [$((i+1))] ${PORTS[$i]}"
-    done
-    read -rp "Select device number (1-${#PORTS[@]}) or enter custom path: " CHOICE
-    if [[ "$CHOICE" =~ ^[0-9]+$ ]] && [ "$CHOICE" -ge 1 ] && [ "$CHOICE" -le ${#PORTS[@]} ]; then
-        PORT="${PORTS[$((CHOICE-1))]}"
-    else
-        PORT="$CHOICE"
-    fi
-
 else
-    echo "[-] No active USB-UART devices automatically detected."
-    read -rp "Please enter serial port manually (e.g. /dev/ttyUSB0 or /dev/cu.usbserial-*): " PORT
+    read -rp "Enter your ESP8266 serial port (e.g. /dev/ttyUSB0): " PORT
 fi
 
 if [ -z "$PORT" ]; then
@@ -110,9 +74,23 @@ if [ "$ACTION" = "2" ]; then
 fi
 
 echo ""
-echo "[*] Uploading firmware files from firmware/ to ESP8266..."
-python3 -m mpremote connect "$PORT" cp -r firmware/* :
+echo "[*] Transferring firmware files to ESP8266 root filesystem..."
+echo "  - Uploading boot.py..."
+python3 -m mpremote connect "$PORT" cp firmware/boot.py :boot.py
 
+echo "  - Uploading config.py..."
+python3 -m mpremote connect "$PORT" cp firmware/config.py :config.py
+
+echo "  - Uploading main.py..."
+python3 -m mpremote connect "$PORT" cp firmware/main.py :main.py
+
+if [ -f "firmware/web/index.html" ]; then
+    echo "  - Uploading web/index.html..."
+    python3 -m mpremote connect "$PORT" mkdir :web 2>/dev/null || true
+    python3 -m mpremote connect "$PORT" cp firmware/web/index.html :web/index.html
+fi
+
+echo ""
 echo "[*] Resetting microcontroller..."
 python3 -m mpremote connect "$PORT" reset
 

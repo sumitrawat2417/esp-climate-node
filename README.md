@@ -23,6 +23,9 @@ When powered on, the ESP8266 broadcasts its own self-hosted **Soft Access Point 
 +--------------------+        +-----------------------------+        +---------------------------+
 ```
 
+### 📸 Live Dashboard Preview
+![ESP-ClimateNode Web Dashboard](assets/dashboard-preview.png)
+
 ---
 
 ## ✨ Key Features
@@ -147,9 +150,11 @@ mpremote connect COM3 reset
 
 - [x] Architecture design & system specification
 - [x] Initial project repository & `.gitignore` structure
-- [ ] Core firmware implementation (`boot.py`, `config.py`, `main.py`)
-- [ ] Embedded responsive dashboard (`web/index.html`)
-- [ ] Captive portal probe interception (`/generate_204`, `/hotspot-detect.html`)
+- [x] Core firmware implementation (`boot.py`, `config.py`, `main.py`)
+- [x] Embedded responsive dashboard (`web/index.html`)
+- [x] Captive portal probe interception (`/generate_204`, `/hotspot-detect.html`)
+- [x] Smart differential sync deployer (`scripts/sync.py`)
+- [x] Hardware validation & live telemetry test (ESP8266 + DHT22)
 - [ ] Circular flash buffer logging for 24h min/max history
 
 ---

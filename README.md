@@ -62,13 +62,15 @@ When powered on, the ESP8266 broadcasts its own self-hosted **Soft Access Point 
 
 ```text
 esp-climate-node/
-├── boot.py               # Hardware bootloader, SoftAP setup & network config
-├── config.py             # User settings (SSID, AP password, GPIO pins, intervals)
-├── main.py               # Core application: sensor reader & async HTTP server
-├── web/
-│   └── index.html        # Embedded responsive dashboard (HTML5, CSS3, JS)
 ├── .gitignore            # Git exclusion rules
-└── README.md             # Project documentation & quickstart
+├── LICENSE               # MIT License
+├── README.md             # Project documentation & quickstart
+└── src/                  # MicroPython device firmware (uploaded to ESP8266)
+    ├── boot.py           # Hardware bootloader, SoftAP setup & network config
+    ├── config.py         # User settings (SSID, AP password, GPIO pins, intervals)
+    ├── main.py           # Core application: sensor reader & async HTTP server
+    └── web/
+        └── index.html    # Embedded responsive dashboard (HTML5, CSS3, JS)
 ```
 
 ---
@@ -92,11 +94,11 @@ esptool.py --port COM3 --baud 460800 write_flash --flash_size=detect 0 esp8266-l
 Using **Thonny IDE** or `mpremote`:
 ```bash
 pip install mpremote
-mpremote connect COM3 cp boot.py :boot.py
-mpremote connect COM3 cp config.py :config.py
-mpremote connect COM3 cp main.py :main.py
-mpremote connect COM3 mkdir :web
-mpremote connect COM3 cp web/index.html :web/index.html
+
+# Upload all files from src/ to the ESP8266 root filesystem
+mpremote connect COM3 cp -r src/* :
+
+# Soft-reset the board
 mpremote connect COM3 reset
 ```
 

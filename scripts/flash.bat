@@ -69,7 +69,7 @@ echo.
 :: Deployment Action Selection
 :: -------------------------------------------------------------
 echo Select an action:
-echo   [1] Upload firmware files only [boot.py, config.py, main.py, web/]
+echo   [1] Smart Differential Sync [Only writes modified files - saves flash wear]
 echo   [2] Flash fresh MicroPython binary + Upload firmware
 echo.
 set "ACTION=1"
@@ -103,30 +103,9 @@ if "!ACTION!"=="2" (
 )
 
 echo.
-echo [*] Transferring firmware files to ESP8266 root filesystem on !COM_PORT!...
-
-echo   - Uploading boot.py...
-python -m mpremote connect !COM_PORT! cp firmware\boot.py :boot.py
+echo [*] Executing Smart Differential Sync on !COM_PORT!...
+python scripts\sync.py !COM_PORT!
 if errorlevel 1 goto TransferError
-
-echo   - Uploading config.py...
-python -m mpremote connect !COM_PORT! cp firmware\config.py :config.py
-if errorlevel 1 goto TransferError
-
-echo   - Uploading main.py...
-python -m mpremote connect !COM_PORT! cp firmware\main.py :main.py
-if errorlevel 1 goto TransferError
-
-if exist "firmware\web\index.html" (
-    echo   - Uploading web/index.html...
-    python -m mpremote connect !COM_PORT! mkdir :web 2>nul
-    python -m mpremote connect !COM_PORT! cp firmware\web\index.html :web/index.html
-    if errorlevel 1 goto TransferError
-)
-
-echo.
-echo [*] Resetting microcontroller...
-python -m mpremote connect !COM_PORT! reset
 
 echo.
 echo ===================================================
@@ -139,7 +118,7 @@ exit /b 0
 
 :TransferError
 echo.
-echo [ERROR] File transfer failed on !COM_PORT!!
+echo [ERROR] Sync or transfer failed on !COM_PORT!!
 echo Troubleshooting Suggestions:
 echo   1. Ensure Thonny IDE or any open Serial Monitor is CLOSED.
 echo   2. Press the physical RST button on the ESP8266 and try again.

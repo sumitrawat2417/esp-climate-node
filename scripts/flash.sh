@@ -51,7 +51,7 @@ echo ""
 # Deployment Action Selection
 # -------------------------------------------------------------
 echo "Select an action:"
-echo "  [1] Upload firmware files only (boot.py, config.py, main.py, web/)"
+echo "  [1] Smart Differential Sync [Only writes modified files - saves flash wear]"
 echo "  [2] Flash fresh MicroPython binary + Upload firmware"
 read -rp "Enter choice (1 or 2) [default 1]: " ACTION
 ACTION="${ACTION:-1}"
@@ -74,25 +74,8 @@ if [ "$ACTION" = "2" ]; then
 fi
 
 echo ""
-echo "[*] Transferring firmware files to ESP8266 root filesystem..."
-echo "  - Uploading boot.py..."
-python3 -m mpremote connect "$PORT" cp firmware/boot.py :boot.py
-
-echo "  - Uploading config.py..."
-python3 -m mpremote connect "$PORT" cp firmware/config.py :config.py
-
-echo "  - Uploading main.py..."
-python3 -m mpremote connect "$PORT" cp firmware/main.py :main.py
-
-if [ -f "firmware/web/index.html" ]; then
-    echo "  - Uploading web/index.html..."
-    python3 -m mpremote connect "$PORT" mkdir :web 2>/dev/null || true
-    python3 -m mpremote connect "$PORT" cp firmware/web/index.html :web/index.html
-fi
-
-echo ""
-echo "[*] Resetting microcontroller..."
-python3 -m mpremote connect "$PORT" reset
+echo "[*] Executing Smart Differential Sync on $PORT..."
+python3 scripts/sync.py "$PORT"
 
 echo ""
 echo "==================================================="

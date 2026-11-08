@@ -54,8 +54,8 @@ The physical node consists of an ESP8266 development board connected to a DHT22 
 
 ```mermaid
 flowchart LR
-    S["DHT22 (AM2302) Sensor"] -->|Single-Wire Data Pin D2/GPIO4| M["ESP8266 (NodeMCU / D1 Mini)"]
-    M -->|802.11 b/g/n SoftAP 192.168.4.1| N["Client Browser (Phone / PC)"]
+    S["DHT22 (AM2302) Sensor"] -->|"Single-Wire Pin D2 / GPIO4"| M["ESP8266 (NodeMCU / D1 Mini)"]
+    M -->|"SoftAP 192.168.4.1"| N["Client Browser (Phone / PC)"]
 ```
 
 ## Bill of Materials
@@ -88,23 +88,23 @@ The system decouples physical sensor reading from client network I/O through an 
 
 ```mermaid
 flowchart TD
-    subgraph Hardware
-        DHT["DHT22 Sensor"] -->|GPIO4 (D2)| MCU["ESP8266EX"]
+    subgraph HW["Hardware Layer"]
+        DHT["DHT22 Sensor"] -->|"GPIO4 / Pin D2"| MCU["ESP8266EX SoC"]
     end
 
-    subgraph Firmware Runtime
+    subgraph FW["Firmware Runtime"]
         MCU --> LOOP["Sampling Task (Every 2.5s)"]
-        LOOP --> CACHE["In-Memory State Store"]
+        LOOP --> CACHE["In-Memory State Cache"]
         LOOP --> GC["Garbage Collector (gc.collect)"]
         
         AP["SoftAP (192.168.4.1)"] --> HTTP["HTTP Server (Port 80)"]
-        CACHE -->|Instant Read < 5ms| HTTP
+        CACHE -->|"Fast Read (sub-5ms)"| HTTP
     end
 
-    subgraph Client
-        HTTP -->|GET /| UI["index.html (Dashboard)"]
-        HTTP -->|GET /api/data| JSON["Telemetry Stream"]
-        CLIENT["Browser"] -->|fetch polling (3s)| HTTP
+    subgraph CL["Client Layer"]
+        HTTP -->|"GET /"| UI["index.html (Dashboard)"]
+        HTTP -->|"GET /api/data"| JSON["Telemetry Stream"]
+        CLIENT["Browser"] -->|"fetch() Polling (3s)"| HTTP
     end
 ```
 

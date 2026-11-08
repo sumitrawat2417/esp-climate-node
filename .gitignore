@@ -1,5 +1,7 @@
 # Documentation (kept local, excluded from public repo per project spec)
 docs/
+docs.zip
+*.zip
 
 # Python / MicroPython bytecode & caches
 __pycache__/

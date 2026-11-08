@@ -9,7 +9,7 @@ echo.
 :: -------------------------------------------------------------
 :: Dependency Check (Auto-install mpremote & esptool if missing)
 :: -------------------------------------------------------------
-python -c "import mpremote" 2>nul
+python -c "import mpremote" >nul 2>nul
 if errorlevel 1 (
     echo [*] 'mpremote' not found. Installing via pip...
     python -m pip install mpremote
@@ -20,7 +20,7 @@ if errorlevel 1 (
     )
 )
 
-python -c "import esptool" 2>nul
+python -c "import esptool" >nul 2>nul
 if errorlevel 1 (
     echo [*] 'esptool' not found. Installing via pip...
     python -m pip install esptool
@@ -43,11 +43,11 @@ for /f "usebackq tokens=*" %%i in (`powershell -NoProfile -Command "[System.IO.P
 
 if %PORT_COUNT% EQU 1 (
     if /i "!DETECTED_PORT!"=="COM1" (
-        echo [!] Warning: Only COM1 detected. (COM1 is usually the internal PC header, not the USB ESP8266).
-        echo     If your ESP8266 is plugged in, verify your USB cable or install CH340/CP2102 driver.
+        echo [!] Notice: Only COM1 detected. On many desktop PCs, COM1 is a motherboard port.
+        echo     If your ESP8266 is connected via USB, make sure you use a data cable or install CH340 / CP2102 drivers.
     )
     echo [+] Detected serial port: !DETECTED_PORT!
-    set /p "USER_PORT=Press Enter to use [!DETECTED_PORT!], or type custom port (e.g. COM3): "
+    set /p "USER_PORT=Press Enter to use [!DETECTED_PORT!], or type a different port: "
     if "!USER_PORT!"=="" (
         set "COM_PORT=!DETECTED_PORT!"
     ) else (
@@ -56,11 +56,11 @@ if %PORT_COUNT% EQU 1 (
 ) else if %PORT_COUNT% GTR 1 (
     echo [!] Multiple serial ports detected:!ALL_PORTS!
     echo.
-    set /p "COM_PORT=Enter your ESP8266 COM Port (e.g. COM3): "
+    set /p "COM_PORT=Enter your ESP8266 COM Port [e.g. COM3]: "
 ) else (
     echo [-] No COM ports automatically detected.
     echo     Please verify your ESP8266 is plugged in with a USB data cable.
-    set /p "COM_PORT=Enter your ESP8266 COM Port manually (e.g. COM3): "
+    set /p "COM_PORT=Enter your ESP8266 COM Port manually [e.g. COM3]: "
 )
 
 if "%COM_PORT%"=="" (
@@ -76,11 +76,11 @@ echo.
 :: Deployment Action Selection
 :: -------------------------------------------------------------
 echo Select an action:
-echo   [1] Upload firmware files only (boot.py, config.py, main.py, web/)
+echo   [1] Upload firmware files only [boot.py, config.py, main.py, web/]
 echo   [2] Flash fresh MicroPython binary + Upload firmware
 echo.
 set "ACTION=1"
-set /p ACTION="Enter option (1 or 2) [default 1]: "
+set /p ACTION="Enter option 1 or 2 [default 1]: "
 
 if "%ACTION%"=="2" (
     set /p BIN_FILE="Enter path to MicroPython .bin firmware: "
@@ -118,7 +118,7 @@ if errorlevel 1 (
     echo Suggestions:
     echo   1. Close Thonny IDE or any open Serial Monitors.
     echo   2. Verify that %COM_PORT% is the correct USB-to-UART port.
-    echo   3. Press the RST button on the ESP8266 and try again.
+    echo   3. Press the physical RST button on the ESP8266 and try again.
     pause
     exit /b 1
 )

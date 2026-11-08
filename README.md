@@ -28,6 +28,7 @@
 ## Features
 
 - **Offline-First SoftAP:** Broadcasts a standalone 802.11 b/g/n Wi-Fi network (`ESP-Climate-Node`) with onboard DHCP assigning addresses on the `192.168.4.0/24` subnet.
+- **Friendly Local Domain Resolution:** Integrated cooperative RFC 1035 UDP DNS server resolves `http://climate.local` (and aliases `esp.local`, `climate.node`) to `192.168.4.1`, removing the need to memorize numeric IP addresses.
 - **Decoupled Sensor Sampling:** An internal cooperative timer reads the DHT22 every 2.5 seconds into an in-memory cache, preventing single-wire bus timeouts during concurrent browser requests.
 - **Real-Time Web Dashboard:** Single-page application served directly from flash memory with zero external CDN dependencies, updating via asynchronous JavaScript polling every 3 seconds.
 - **Derived Physiological Metrics:** Computes the official NOAA Rothfusz Heat Index ("Feels Like") and Magnus-Tetens Dew Point directly on the microcontroller.
@@ -45,6 +46,7 @@
 | Sensor | Aosong DHT22 / AM2302 | Capacitive humidity element, NTC thermistor, single-wire digital bus |
 | Firmware | MicroPython (v1.20+) | Bare-metal Python runtime with native `dht`, `usocket`, and `network` modules |
 | Web Server | MicroPython Socket Server | Non-blocking BSD socket listener on port 80 |
+| Name Resolution | RFC 1035 UDP DNS Server | Non-blocking captive resolver on port 53 (maps `climate.local` to `192.168.4.1`) |
 | Frontend | HTML5 / CSS3 / Vanilla JS | Glassmorphic dark UI, CSS Grid, ES6 `fetch()` polling, no external CDNs |
 | Host Tooling | Python 3, `esptool`, `mpremote` | Flashing, serial control, and SHA-256 differential synchronization |
 
@@ -55,7 +57,7 @@ The physical node consists of an ESP8266 development board connected to a DHT22 
 ```mermaid
 flowchart LR
     S["DHT22 (AM2302) Sensor"] -->|"Single-Wire Pin D2 / GPIO4"| M["ESP8266 (NodeMCU / D1 Mini)"]
-    M -->|"SoftAP 192.168.4.1"| N["Client Browser (Phone / PC)"]
+    M -->|"SoftAP · climate.local"| N["Client Browser (Phone / PC)"]
 ```
 
 ## Bill of Materials
@@ -84,7 +86,7 @@ Pin numbering used below: **GPIO numbers** (internal MicroPython identifier) and
 
 ## Architecture
 
-The system decouples physical sensor reading from client network I/O through an asynchronous in-memory state store.
+The system decouples physical sensor reading from client network I/O through an asynchronous in-memory state store and cooperative networking loop.
 
 ```mermaid
 flowchart TD
@@ -98,13 +100,15 @@ flowchart TD
         LOOP --> GC["Garbage Collector (gc.collect)"]
         
         AP["SoftAP (192.168.4.1)"] --> HTTP["HTTP Server (Port 80)"]
+        AP --> DNS["Captive DNS Server (UDP 53)"]
+        DNS -->|"Resolves 'climate.local'"| AP
         CACHE -->|"Fast Read (sub-5ms)"| HTTP
     end
 
     subgraph CL["Client Layer"]
         HTTP -->|"GET /"| UI["index.html (Dashboard)"]
         HTTP -->|"GET /api/data"| JSON["Telemetry Stream"]
-        CLIENT["Browser"] -->|"fetch() Polling (3s)"| HTTP
+        CLIENT["Browser / OS"] -->|"climate.local (or 192.168.4.1)"| HTTP
     end
 ```
 
@@ -169,13 +173,15 @@ python scripts/sync.py COM6
            Subnet     : 255.255.255.0
    ==================================================
    ==================================================
-    [SERVER] HTTP Server active on http://192.168.4.1:80
+    [SERVER] HTTP Server active on:
+             - http://192.168.4.1:80
+             - http://climate.local/
     [SERVER] Ready for client connections.
    ==================================================
    [SENSOR] Read OK: 28.9°C, 69.3% RH (HI: 32.4°C, DP: 22.7°C)
    ```
 3. Join the Wi-Fi network `ESP-Climate-Node` on your phone or laptop.
-4. Open a browser and navigate to `http://192.168.4.1`. The live climate dashboard will appear.
+4. Navigate to `http://climate.local` (or `http://192.168.4.1`) in your browser to view the live dashboard.
 
 ## Configuration
 
@@ -183,6 +189,8 @@ All operating parameters are centralized in `firmware/config.py`:
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
+| `DOMAIN_NAME` | string | `"climate.local"` | Friendly local domain address (no IP memorization needed) |
+| `ENABLE_DNS_SERVER` | boolean | `True` | Cooperative RFC 1035 UDP DNS responder on port 53 |
 | `WIFI_SSID` | string | `"ESP-Climate-Node"` | Broadcast Wi-Fi network name |
 | `WIFI_PASSWORD` | string | `""` | WPA2 password (empty string creates an open network; min 8 chars for WPA2) |
 | `WIFI_CHANNEL` | integer | `6` | 2.4 GHz RF channel (1–11) |
@@ -200,15 +208,28 @@ All operating parameters are centralized in `firmware/config.py`:
 
 ### Connecting to the Dashboard
 
-1. Enable Wi-Fi on your device and connect to **`ESP-Climate-Node`**.
-2. If prompted by your mobile operating system that the network has no internet access, tap **Keep connected**.
-3. Navigate to **`http://192.168.4.1`** in any web browser.
-4. View real-time metrics:
-   - **Temperature:** Ambient air temperature with animated range bar.
-   - **Relative Humidity:** Current moisture percentage with comfort indicator.
-   - **Heat Index:** Apparent temperature calculated via the NOAA regression model.
-   - **Dew Point:** Moisture saturation threshold calculated via the Magnus formula.
-5. Tap the **°C / °F** toggle button on the temperature card to switch display units.
+Connect to the node using any of three methods:
+
+1. **Automatic Captive Portal (Recommended):**
+   - Connect your phone or laptop to the Wi-Fi network **`ESP-Climate-Node`**.
+   - Tap the system notification (e.g. *"Sign in to Wi-Fi network"* or *"Tap to open network"*). The dashboard opens immediately with zero URL typing.
+
+2. **Friendly Local Domain:**
+   - Connect to **`ESP-Climate-Node`**.
+   - Open any browser and navigate to **`http://climate.local`** (or aliases: `http://esp.local`, `http://climate.node`).
+
+3. **Direct Static IP:**
+   - Connect to **`ESP-Climate-Node`**.
+   - Open any browser and navigate to **`http://192.168.4.1`**.
+
+### Dashboard Features
+
+View real-time metrics:
+- **Temperature:** Ambient air temperature with animated range bar.
+- **Relative Humidity:** Current moisture percentage with comfort indicator.
+- **Heat Index:** Apparent temperature calculated via the NOAA regression model.
+- **Dew Point:** Moisture saturation threshold calculated via the Magnus formula.
+- **Unit Toggle:** Tap the **°C / °F** button on the temperature card to switch display units.
 
 ## REST API Reference
 
@@ -255,11 +276,12 @@ esp-climate-node/
 ├── README.md             # Project documentation
 ├── assets/               # Media and documentation graphics
 │   ├── .gitkeep
-│   └── dashboard-preview.png
+│   └── dashboard_img.png # Real hardware telemetry dashboard screenshot
 ├── firmware/             # MicroPython firmware source (deployed to ESP8266)
 │   ├── boot.py           # Hardware bootloader & SoftAP network initializer
 │   ├── config.py         # System configuration & calibration offsets
-│   ├── main.py           # Application engine: sensor task & HTTP server
+│   ├── dnsserver.py      # Non-blocking RFC 1035 UDP DNS captive resolver
+│   ├── main.py           # Application engine: sensor task, HTTP & DNS loops
 │   └── web/
 │       └── index.html    # Embedded responsive dashboard (HTML5, CSS3, JS)
 └── scripts/              # Host-side deployment utilities

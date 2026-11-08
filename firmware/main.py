@@ -282,9 +282,12 @@ def handle_http_client(client_sock):
             }
             send_json(client_sock, status_payload)
 
-        # Route: Not Found
+        # Route: Not Found / Captive Fallback
         else:
-            send_json(client_sock, {"error": "Endpoint not found", "path": path}, "404 Not Found")
+            if getattr(config, "ENABLE_CAPTIVE_PORTAL", True) and not path.startswith("/api/"):
+                send_redirect(client_sock, "/")
+            else:
+                send_json(client_sock, {"error": "Endpoint not found", "path": path}, "404 Not Found")
 
     except Exception as e:
         print("[HTTP-ERR] Error handling client request:", e)
@@ -301,16 +304,29 @@ def handle_http_client(client_sock):
 # 5. Main Application Event Loop
 # ==============================================================================
 def start_server():
-    """Initializes listening TCP socket and runs the cooperative event loop."""
+    """Initializes listening TCP & UDP sockets and runs the cooperative event loop."""
     addr = socket.getaddrinfo("0.0.0.0", config.SERVER_PORT)[0][-1]
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server_sock.bind(addr)
     server_sock.listen(2)
-    server_sock.settimeout(0.1)  # Non-blocking poll interval
+    server_sock.settimeout(0.05)  # Fast 50ms cooperative timeout
 
+    # Initialize non-blocking DNS server for friendly local domain resolution & captive portal
+    dns_server = None
+    if getattr(config, "ENABLE_DNS_SERVER", True):
+        try:
+            from dnsserver import DNSServer
+            dns_port = getattr(config, "DNS_PORT", 53)
+            dns_server = DNSServer(ip=config.AP_IP, port=dns_port)
+        except Exception as e:
+            print(" [DNS-WARN] Could not initialize DNS server:", e)
+
+    domain_str = getattr(config, "DOMAIN_NAME", "climate.local")
     print("=" * 50)
-    print(" [SERVER] HTTP Server active on http://{}:{}".format(config.AP_IP, config.SERVER_PORT))
+    print(" [SERVER] HTTP Server active on:")
+    print("          - http://{}:{}".format(config.AP_IP, config.SERVER_PORT))
+    print("          - http://{}/".format(domain_str))
     print(" [SERVER] Ready for client connections.")
     print("=" * 50)
 
@@ -321,13 +337,18 @@ def start_server():
 
     while True:
         try:
-            # 1. Periodic Sensor Polling (Decoupled from HTTP requests)
+            # 1. Drain pending DNS queries (Captive / Custom Domain resolution)
+            if dns_server:
+                for _ in range(3):
+                    dns_server.process()
+
+            # 2. Periodic Sensor Polling (Decoupled from HTTP requests)
             now = time.ticks_ms()
             if time.ticks_diff(now, last_sensor_sample) >= poll_interval_ms:
                 sample_sensor()
                 last_sensor_sample = now
 
-            # 2. Check for incoming HTTP client connections
+            # 3. Check for incoming HTTP client connections
             try:
                 client_sock, client_addr = server_sock.accept()
                 handle_http_client(client_sock)
@@ -343,6 +364,8 @@ def start_server():
             time.sleep(0.5)
 
     server_sock.close()
+    if dns_server:
+        dns_server.close()
 
 
 # Launch main engine directly on boot

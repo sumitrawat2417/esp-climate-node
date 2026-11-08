@@ -14,13 +14,14 @@ import subprocess
 SYNC_FILES = [
     ("firmware/boot.py", "boot.py"),
     ("firmware/config.py", "config.py"),
+    ("firmware/dnsserver.py", "dnsserver.py"),
     ("firmware/main.py", "main.py"),
     ("firmware/web/index.html", "web/index.html")
 ]
 
 DEVICE_HASH_SCRIPT = """
 import os, uhashlib, ubinascii
-files = ['boot.py', 'config.py', 'main.py', 'web/index.html']
+files = ['boot.py', 'config.py', 'dnsserver.py', 'main.py', 'web/index.html']
 for p in files:
     try:
         h = uhashlib.sha256()

@@ -47,8 +47,16 @@ FILE_CHUNK_SIZE = 512       # Stream chunk size in bytes to prevent RAM fragment
 # Client-side UI polling recommendation (in milliseconds)
 CLIENT_POLL_INTERVAL_MS = 3000
 
-# Captive Portal Simulation
-# When enabled, intercepts OS probe URLs (/generate_204, /hotspot-detect.html, etc.)
-# and redirects them to http://192.168.4.1/ for instant dashboard launch.
+# --- Domain & Captive DNS Configuration ---
+# Friendly local domain name (eliminates the need to memorize numeric IP 192.168.4.1)
+DOMAIN_NAME = "climate.local"
+DOMAIN_ALIASES = ["climate.local", "esp.local", "climate.node", "esp-climate.local"]
+ENABLE_DNS_SERVER = True
+DNS_PORT = 53
+
+# Captive Portal & Probe Redirection
+# Intercepts OS probe URLs (/generate_204, /hotspot-detect.html, etc.)
+# and redirects them to http://climate.local/ for instant dashboard launch.
 ENABLE_CAPTIVE_PORTAL = True
+
 

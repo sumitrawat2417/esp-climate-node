@@ -111,7 +111,8 @@ echo.
 echo ===================================================
 echo   Deployment Successful!
 echo   Connect to Wi-Fi: ESP-Climate-Node
-echo   Open dashboard  : http://192.168.4.1
+echo   Open dashboard  : http://climate.local
+echo   Alternative IP  : http://192.168.4.1
 echo ===================================================
 pause
 exit /b 0

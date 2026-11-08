@@ -1,0 +1,21 @@
+# Documentation (kept local, excluded from public repo per project spec)
+docs/
+
+# Python / MicroPython bytecode & caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment & Device files
+.env
+*.local
+*.bin
+
+# Editors & OS
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db

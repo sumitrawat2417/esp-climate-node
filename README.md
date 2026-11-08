@@ -65,12 +65,16 @@ esp-climate-node/
 ├── .gitignore            # Git exclusion rules
 ├── LICENSE               # MIT License
 ├── README.md             # Project documentation & quickstart
-└── src/                  # MicroPython device firmware (uploaded to ESP8266)
-    ├── boot.py           # Hardware bootloader, SoftAP setup & network config
-    ├── config.py         # User settings (SSID, AP password, GPIO pins, intervals)
-    ├── main.py           # Core application: sensor reader & async HTTP server
-    └── web/
-        └── index.html    # Embedded responsive dashboard (HTML5, CSS3, JS)
+├── assets/               # Circuit diagrams, hardware schematics & screenshots
+├── firmware/             # MicroPython device firmware (uploaded to ESP8266)
+│   ├── boot.py           # Hardware bootloader, SoftAP setup & network config
+│   ├── config.py         # User settings (SSID, AP password, GPIO pins, intervals)
+│   ├── main.py           # Core application: sensor reader & async HTTP server
+│   └── web/
+│       └── index.html    # Embedded responsive dashboard (HTML5, CSS3, JS)
+└── scripts/              # 1-click deployment utilities
+    ├── flash.bat         # Automated flasher & uploader for Windows
+    └── flash.sh          # Automated flasher & uploader for macOS/Linux
 ```
 
 ---
@@ -91,12 +95,17 @@ esptool.py --port COM3 --baud 460800 write_flash --flash_size=detect 0 esp8266-l
 ```
 
 ### 2. Upload Code to Board
-Using **Thonny IDE** or `mpremote`:
+
+#### Option A: 1-Click Automated Script
+* **Windows:** Double-click or run `scripts\flash.bat`
+* **macOS/Linux:** Run `bash scripts/flash.sh`
+
+#### Option B: Manual Upload via `mpremote`
 ```bash
 pip install mpremote
 
-# Upload all files from src/ to the ESP8266 root filesystem
-mpremote connect COM3 cp -r src/* :
+# Upload all files from firmware/ to the ESP8266 root filesystem
+mpremote connect COM3 cp -r firmware/* :
 
 # Soft-reset the board
 mpremote connect COM3 reset

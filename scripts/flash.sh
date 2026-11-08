@@ -7,13 +7,26 @@ echo "==================================================="
 echo ""
 
 # -------------------------------------------------------------
+# Dependency Check (Auto-install mpremote & esptool if missing)
+# -------------------------------------------------------------
+if ! python3 -c "import mpremote" &>/dev/null; then
+    echo "[*] 'mpremote' not found. Installing via pip..."
+    python3 -m pip install mpremote
+fi
+
+if ! python3 -c "import esptool" &>/dev/null; then
+    echo "[*] 'esptool' not found. Installing via pip..."
+    python3 -m pip install esptool
+fi
+
+# -------------------------------------------------------------
 # Automatic Serial Port Detection (Linux & macOS)
 # -------------------------------------------------------------
 detect_serial_ports() {
     local detected=()
 
     # 1. Try python's serial tools if available
-    if command -v python3 &>/dev/null && python3 -c "import serial.tools.list_ports" &>/dev/null; then
+    if python3 -c "import serial.tools.list_ports" &>/dev/null; then
         while IFS= read -r line; do
             [ -n "$line" ] && detected+=("$line")
         done < <(python3 -c "import serial.tools.list_ports; [print(p.device) for p in serial.tools.list_ports.comports()]")

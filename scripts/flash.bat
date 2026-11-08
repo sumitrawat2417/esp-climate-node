@@ -7,24 +7,59 @@ echo ===================================================
 echo.
 
 :: -------------------------------------------------------------
-:: Automatic Serial Port Detection (Windows)
+:: Dependency Check (Auto-install mpremote & esptool if missing)
 :: -------------------------------------------------------------
-echo [*] Scanning for connected ESP8266 COM ports...
-set "DETECTED_PORT="
-for /f "usebackq tokens=*" %%i in (`powershell -NoProfile -Command "[System.IO.Ports.SerialPort]::GetPortNames() | Select-Object -First 1"`) do (
-    set "DETECTED_PORT=%%i"
+python -c "import mpremote" 2>nul
+if errorlevel 1 (
+    echo [*] 'mpremote' not found. Installing via pip...
+    python -m pip install mpremote
+    if errorlevel 1 (
+        echo [ERROR] Failed to install mpremote. Check your internet connection.
+        pause
+        exit /b 1
+    )
 )
 
-if defined DETECTED_PORT (
-    echo [+] Found connected device on: !DETECTED_PORT!
-    set /p "USER_PORT=Press Enter to use [!DETECTED_PORT!], or type custom port (e.g. COM4): "
+python -c "import esptool" 2>nul
+if errorlevel 1 (
+    echo [*] 'esptool' not found. Installing via pip...
+    python -m pip install esptool
+)
+
+:: -------------------------------------------------------------
+:: Automatic Serial Port Detection (Windows)
+:: -------------------------------------------------------------
+echo [*] Scanning for connected serial devices...
+
+set "PORT_COUNT=0"
+set "DETECTED_PORT="
+set "ALL_PORTS="
+
+for /f "usebackq tokens=*" %%i in (`powershell -NoProfile -Command "[System.IO.Ports.SerialPort]::GetPortNames()"`) do (
+    set /a PORT_COUNT+=1
+    set "DETECTED_PORT=%%i"
+    set "ALL_PORTS=!ALL_PORTS! %%i"
+)
+
+if %PORT_COUNT% EQU 1 (
+    if /i "!DETECTED_PORT!"=="COM1" (
+        echo [!] Warning: Only COM1 detected. (COM1 is usually the internal PC header, not the USB ESP8266).
+        echo     If your ESP8266 is plugged in, verify your USB cable or install CH340/CP2102 driver.
+    )
+    echo [+] Detected serial port: !DETECTED_PORT!
+    set /p "USER_PORT=Press Enter to use [!DETECTED_PORT!], or type custom port (e.g. COM3): "
     if "!USER_PORT!"=="" (
         set "COM_PORT=!DETECTED_PORT!"
     ) else (
         set "COM_PORT=!USER_PORT!"
     )
+) else if %PORT_COUNT% GTR 1 (
+    echo [!] Multiple serial ports detected:!ALL_PORTS!
+    echo.
+    set /p "COM_PORT=Enter your ESP8266 COM Port (e.g. COM3): "
 ) else (
     echo [-] No COM ports automatically detected.
+    echo     Please verify your ESP8266 is plugged in with a USB data cable.
     set /p "COM_PORT=Enter your ESP8266 COM Port manually (e.g. COM3): "
 )
 
@@ -78,7 +113,12 @@ echo.
 echo [*] Uploading firmware files from firmware/ to ESP8266 root...
 python -m mpremote connect %COM_PORT% cp -r firmware/* :
 if errorlevel 1 (
-    echo [ERROR] File transfer failed. Ensure Thonny or other serial monitors are closed.
+    echo.
+    echo [ERROR] File transfer failed.
+    echo Suggestions:
+    echo   1. Close Thonny IDE or any open Serial Monitors.
+    echo   2. Verify that %COM_PORT% is the correct USB-to-UART port.
+    echo   3. Press the RST button on the ESP8266 and try again.
     pause
     exit /b 1
 )

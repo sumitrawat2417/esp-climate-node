@@ -345,7 +345,6 @@ def start_server():
     server_sock.close()
 
 
-# Launch main engine
-if __name__ == "__main__":
-    start_server()
+# Launch main engine directly on boot
+start_server()
 
